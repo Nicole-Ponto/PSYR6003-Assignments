@@ -1,0 +1,270 @@
+---
+title: "PSYR 6003 Assignment 1"
+author: "Nicole Ponto"
+format: html
+editor: visual
+---
+
+Install and library packages
+
+```{r}
+install.packages("git2r")
+install.packages("tidyverse")
+install.packages("haven")
+install.packages("dplyr")
+install.packages("pwr")
+install.packages("TOSTER")
+install.packages("ggplot2")
+install.packages("ggthemes")
+install.packages("apa")
+install.packages("effectsize")
+
+library(git2r)
+library(TOSTER)
+library(pwr)
+library(tidyverse)
+library(dplyr)
+library(haven)
+library(ggplot2)
+library(ggthemes)
+library(apa)
+library(effectsize)
+```
+
+Clone Repo from Github
+
+```{r}
+###Only needs to be done once
+###avengers_data<- "https://github.com/iyakoven/PSYR6003-Assignment-1.git"
+###pathway <- "/Users/nicoleponto/STUPIDFOLDER"
+###repo <- git2r::clone(url = avengers_data, local_path = pathway)
+```
+
+Read in the CSV data file
+
+```{r}
+avengers_data<-read_csv("avengers.csv") ## reads data set into R
+avengers_data<-mutate(avengers_data, ID = row_number(), .before = 1) ## Adds row numbers to data set
+avengers_data_clean <- na.omit(avengers_data) ## Looks for missing values in data set
+colSums(is.na(avengers_data_clean)) ## Cleans data set and saves clean data as new object
+view(avengers_data_clean) ## opens data set
+```
+
+Create Combat Effectiveness variable
+
+```{r}
+avengers_data_extraCool <-mutate(avengers_data_clean, combatEffectivness = agility+speed+strength+willpower) ## creates new variable combatEffectivness
+view(avengers_data_extraCool) ## view data set to ensure variable is present
+```
+
+Summarise data for Combat Effectiveness, kills, and injuries
+
+```{r}
+bad_avengers<- filter(
+  avengers_data_extraCool,
+  superpower=="no" & 
+    died == "yes") ## filter data set to only include avengers with no superpower and have died
+view(bad_avengers)
+summary_stats<-bad_avengers %>% 
+  group_by(north_south) %>% ## group avengers based off of battlefield location
+  summarise(
+    avg_combatEffectivness= mean(combatEffectivness, na.rm = T),
+    avg_kills =  mean(kills, na.rm=T),
+    avg_injuries = mean(injuries, na.rm=T),
+
+    SD_combatEffectivness = sd(combatEffectivness, na.rm = T),
+    sd_kills = sd(kills, na.rm=T),
+    sd_injuries = sd(injuries, na.rm = T),
+
+    min_combatEffectivness = min(combatEffectivness, na.rm = T),
+    min_kills = min(kills, na.rm=T),
+    min_injuries = min(injuries, na.rm = T),
+
+    max_combatEffectivness = max(combatEffectivness, na.rm = T),
+    max_kills = max(kills, na.rm = T),
+    max_injuries = max(injuries, na.rm=T),
+    
+    range_combatEffectivness = max(combatEffectivness, na.rm = T) - min(combatEffectivness, na.rm = T),
+    range_kills = max(kills, na.rm = T) - min(kills, na.rm=T),
+    range_injuries = max(injuries, na.rm=T) - min(injuries, na.rm = T),
+    
+    total_injuries = sum(injuries, na.rm = T),
+) ## calculate mean, SD, min, max, and range for combat effectiveness, kills, and injuries
+```
+
+Visualize summary statistics
+
+```{r}
+A1<- ggplot(summary_stats, aes(x = north_south, y = avg_combatEffectivness, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Mean Combat Effectiveness by Battlefield", x= "Battlefield Location", y= "Mean Combat Effectiveness")+
+  theme_classic()
+B1<-ggplot(summary_stats, aes(x = north_south, y = SD_combatEffectivness, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Standard Deviation of Combat Effectiveness by Battlefield", x= "Battlefield Location", y= "SD Combat Effectiveness")+
+  theme_classic()
+C1<-ggplot(summary_stats, aes(x = north_south, y = range_combatEffectivness, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Range of Combat Effectiveness by Battlefield", x= "Battlefield Location", y= "Range Combat Effectiveness")+
+  theme_classic()
+A2<-ggplot(summary_stats, aes(x = north_south, y = avg_kills, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Mean Kills by Battlefield", x= "Battlefield Location", y= "Mean Kills")+
+  theme_classic()
+B2<-ggplot(summary_stats, aes(x = north_south, y = sd_kills, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Standard Deviation of Kills by Battlefield", x= "Battlefield Location", y= "SD Kills")+
+  theme_classic()
+C2<-ggplot(summary_stats, aes(x = north_south, y = range_kills, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Range of Kills by Battlefield", x= "Battlefield Location", y= "Range Kills")+
+  theme_classic()
+A3<-ggplot(summary_stats, aes(x = north_south, y = avg_injuries, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Mean injuries by Battlefield", x= "Battlefield Location", y= "Mean Injuries")+
+  theme_classic()
+B3<-ggplot(summary_stats, aes(x = north_south, y = sd_injuries, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Standard Deviation of Injuries by Battlefield", x= "Battlefield Location", y= "SD Injuries")+
+  theme_classic()
+C3<-ggplot(summary_stats, aes(x = north_south, y = range_injuries, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Range of Injuries by Battlefield", x= "Battlefield Location", y= "Range Injuries")+
+  theme_classic()
+
+## Plots for Combat Effectiveness
+(A1|B1|C1)
+##ggsave(filename = "CombatEffectiveness_SummaryStats_plots.png")
+## Plots for Kills
+(A2|B2|C2)
+##ggsave(filename = "Kills_SummaryStats_plots.png")
+## Plots for Injuries
+(A3|B3|C3)
+##ggsave(filename = "Injuries_SummaryStats_plots.png")
+
+##Plots only need to be saved once using ggsave
+```
+
+Save new data as CSV and SPSS files
+
+```{r}
+write.csv(bad_avengers, "bad_avengers.csv", row.names = F, na = "") ## Creates CSV File for dataset
+write_sav(bad_avengers, "bad_avengers.sav") ## creates SPSS file for dataset
+
+view(summary_stats)
+```
+
+Analysis of battlefield effectiveness
+
+```{r}
+Effective_Battlefield <- bad_avengers %>% 
+  group_by(north_south) %>% ##group data set based on battlefield location
+  summarise(
+    avg_combatEffectivness= mean(combatEffectivness, na.rm = T),
+    total_injuries = sum(injuries, na.rm = T)
+  )
+
+BEST_Battlefield<-Effective_Battlefield %>% 
+  arrange(desc(avg_combatEffectivness)) %>% ##Arrange combat effectiveness scores in descending order
+  slice(1) %>% ## select the first score 
+  pull(north_south) ## determine where the battlefield had the highest combat effectiveness
+
+WORST_avengers <- Effective_Battlefield %>% 
+  arrange(desc(total_injuries)) %>% ## Arrange total injuires in descending order
+  slice(1) %>% ## Select the first total amount
+  pull(north_south) ## determine which battelfield had the most amount of injuries
+
+print(BEST_Battlefield) ##Prints the best battlefield
+print(WORST_avengers) ## Prints the battlefield with the most injuries
+```
+
+Visualize the most effective battlefield
+
+```{r}
+## Mean Combat Effectiveness by Battlefield
+p1<- ggplot(Effective_Battlefield, aes(x = north_south, y = avg_combatEffectivness, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Mean Combat Effectiveness by Battlefield", x= "Battlefield Location", y= "Mean Combat Effectiveness")+
+  theme_classic()
+## Mean Total Injuries by Battlefield
+p2<-ggplot(Effective_Battlefield, aes(x = north_south, y = total_injuries, fill = north_south))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Mean Total Injuries by Battlefield", x= "Battlefield Location", y= "Mean Total Injuries")+
+  theme_classic()
+
+(p1|p2) ## Place visuals on same field
+##Only needs to be saved once
+##ggsave(filename="CombatEffectivenessByBTTLEFIELD.png")
+```
+
+Analysis of erroneous mean models
+
+```{r}
+Erroneous_avengers<-bad_avengers %>% 
+  summarise( ##calculate for most amount of error
+    Error_combatEffectivness =sd(combatEffectivness, na.rm = T) / mean(combatEffectivness, na.rm = T),
+    Error_kills=sd(kills, na.rm=T) / mean(kills, na.rm=T),
+    Error_injuries=sd(injuries, na.rm = T) / mean(injuries, na.rm=T),
+  )
+Group<-c("Error in Combat Effectiveness", "Error in Kills", "Error in Injuries")
+Error_values<-c(0.3568781,
+                3.447841,
+                0.1627606)
+Erroneous_avengers_model<-data.frame(Group, Error_values)
+ view(Erroneous_avengers)
+ 
+ cat("The absolute WORST and most errouneous model is", Erroneous_avengers$Error_kills)
+```
+
+Visualize the Mean Model
+
+```{r}
+ggplot(Erroneous_avengers_model, aes(x= Group, y= Error_values)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Errors in Combat Effectiveness, Kills, and Injuries",
+       y = "Amount of Error") +
+  theme_classic()
+## only needs to be saved once
+##ggsave(filename="ErroneousAvengersModel.png")
+```
+
+Secondary analysis using superpower and IQ
+
+```{r}
+##Secondary Analysis to look at relationship between IQ and Superpowers
+secondary_summary_stats<- avengers_data1 %>% 
+  group_by(superpower) %>% 
+  summarise(
+    avg_IQ= mean(iq, na.rm = T),
+    sd_IQ= sd(iq, na.rm = T)
+  )
+view(secondary_summary_stats)
+```
+
+Visualize the Relationship between IQ and Superpowers
+
+```{r}
+ggplot(secondary_summary_stats, aes(x = superpower, y = avg_IQ, fill = superpower))+
+  geom_bar(stat="summary", fun="mean", position="dodge")+
+  labs(title = "Relationship between IQ and superpowers", x= "Superpower", y= "Mean IQ")+
+  theme_classic()
+##Only needs to be saved once
+##ggsave(filename = "RelationshipBetweenIQandSuperpowers.png")
+```
+
+Power Analysis for data set
+
+```{r}
+##Power Analysis
+cohen.ES(test = "t",size = "medium" )
+pwr.t.test(n= NULL, d=0.5, sig.level = 0.05, power = 0.85, type = "two.sample", alternative = "two.sided")
+
+## Test for zero effect
+power_t_TOST(n=NULL, alpha = 0.05, power = 0.85, low_eqbound = -1, high_eqbound = 1, type = "two.sample")
+
+##Test Statistic
+t<- 4.24
+n<-812
+
+t_to_d(t, df_error = n-2, paired = F)
+```
