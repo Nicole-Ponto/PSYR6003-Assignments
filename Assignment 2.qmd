@@ -1,0 +1,212 @@
+---
+title: "PSYR 6003 - Assignment 2"
+format: html
+editor: visual
+---
+
+Install and library all required packages
+
+```{r}
+install.packages("tidyverse")
+install.packages("haven")
+install.packages("flexplot")
+install.packages("dplyr")
+install.packages("apaTables")
+install.packages("MASS")
+install.packages("patchwork")
+
+library(tidyverse)
+library(haven)
+library(flexplot)
+library(dplyr)
+library(apaTables)
+library(MASS)
+library(patchwork)
+```
+
+Read in Data set
+
+```{r}
+newData <- read_sav("~/STUPIDFOLDER/PSYR6003.A2.sav")
+View(newData)
+```
+
+Clean data and prepare for analysis
+
+```{r}
+#change sex to a factor 
+goodData <- newData %>%
+  drop_na() %>% 
+  mutate(sex = as.factor(sex)) %>% 
+  mutate(sex = recode_factor(sex, Female = "0", Male = "1", "Other (specify)" = "2"))
+
+#Reverse coding tipm.CONS2.3y
+greatData <- goodData %>% 
+  mutate(across(matches("tipm.CONS2.3y"), ~ 8 - .))
+view(goodData)
+
+##Means Subscales
+excellentData <- greatData %>% 
+  mutate(mps.mean = rowMeans(across(starts_with("mps")), na.rm = F),
+         negative.mean = rowMeans(across(guilt1.3y:host3.3y), na.rm = F),
+         tipm.mean = rowMeans(across(starts_with("tipm")), na.rm = F)
+         )
+view(excellentData)
+```
+
+Perform univariate analysis using the GLM
+
+```{r}
+##Visualize relationships
+a= flexplot(negative.mean ~ 1, data = excellentData)
+b=flexplot(tipm.mean ~ 1, data = excellentData)
+c= flexplot(mps.mean~ 1, data = excellentData)
+d= flexplot(sex~1, data = excellentData)
+plot1<- a+b+c+d
+##ggsave(filename = "flexplot_Univariate_relationships.jpeg",plot1)
+
+#Step 1: Fit the model
+NegativeAffect = lm(negative.mean ~ 1, excellentData)
+#Step 1.5: Summarize
+summary(NegativeAffect)
+#Step 2: Visualize the data
+visualize(NegativeAffect)
+#Step 3: Compute Estimates
+estimates(NegativeAffect)
+
+#Step 1: Fit the model
+Conscientiousness = lm(tipm.mean ~ 1, excellentData)
+#Step 1.5: Summarize
+summary(Conscientiousness)
+#Step 2: Visualize the data
+visualize(Conscientiousness)
+#Step 3: Compute Estimates
+estimates(Conscientiousness)
+
+#Step 1: Fit the model
+Perfectionism = lm(mps.mean ~ 1, excellentData)
+#Step 1.5: Summarize
+summary(Perfectionism)
+#Step 2: Visualize the data
+visualize(Perfectionism)
+#Step 3: Compute Estimates
+estimates(Perfectionism)
+```
+
+Test Hypothesis 1 - Sex, conscientiousness, and SPP will all significantly predict negative affect. Women will show more negative affect compared to men, and conscientiousness will be negatively related to negative affect.
+
+Full model: Negative Affect = b0 + b1 \* sex + b2 \* Conscientiousness + b3 \* Perfectionsism + e
+
+Reduced model : Negative Affect = b0 + e
+
+```{r}
+## Hypothesis 1 GLM
+##Visualize relationships
+Fig1 <- flexplot(negative.mean~tipm.mean | sex+ mps.mean, data = excellentData, method="lm")
+Fig2 <- flexplot (negative.mean ~ mps.mean | sex + tipm.mean, data = excellentData, method = "lm")
+H1 <-Fig1 + Fig2
+##ggsave(filename = "flexplot_multivariate_relationships.jpeg", H1 ) ##Save 
+
+#Step 1: Fit the model
+model1 <- lm(negative.mean ~ sex + tipm.mean + mps.mean, data = excellentData)
+# Step 2: Visualize
+visualize(model1)
+#Step 3: Compute Estimates
+estimates(model1)
+```
+
+Sensitivity Analysis + Considerations
+
+```{r}
+## Is having a participant 'Other' an outlier? Does it need to be removed? Lets find out.
+seperatedData = excellentData %>% 
+  filter(sex != "2")
+##Visualize relationships
+Fig1 <- flexplot(negative.mean~tipm.mean | sex+ mps.mean, data = seperatedData, method="lm")
+Fig2 <- flexplot (negative.mean ~ mps.mean | sex + tipm.mean, data = seperatedData, method = "lm")
+H1 <-Fig1 + Fig2
+ggsave(filename = "flexplot_multivariate_relationshipsNoOther.jpeg", H1 )
+#Step 1: Fit the model
+model2 <- lm(negative.mean ~ sex + tipm.mean + mps.mean, data = seperatedData)
+# Step 2: Visualize
+visualize(model2)
+ggsave(filename = "model2NoOther.jpeg", model2)
+#Step 3: Compute Estimates
+estimates(model2)
+
+## Male outlier
+stupidData= excellentData %>% 
+  filter(sex ==1)
+menOnly<-flexplot(negative.mean ~ tipm.mean, data = stupidData, method = "lm")
+ggsave(filename = "menOutlier.jpeg",menOnly )
+
+##IS this a quadratic?
+model3 = lm(negative.mean ~ sex + tipm.mean + mps.mean + I(tipm.mean^2), data = excellentData)
+model4 = lm(negative.mean ~ sex + tipm.mean + mps.mean + I(mps.mean^2), data = excellentData)
+visualize(model3)+visualize(model4)
+
+##apa.aov.table(model3,filename = "model3.doc")
+model.comparison(model1, model3)
+model.comparison(model1, model4)
+```
+
+```{r}
+##Compare models based on sex and other outliers
+model.comparison(model1, model2)
+```
+
+```{r}
+## What model should we use? Compare full VS reduced model
+reducedModel = lm(negative.mean ~ 1, data = excellentData)
+model.comparison(model1, reducedModel)
+estimates(model1)
+```
+
+Test Hypothesis 2 - SPP will predict unique variance in negative affect over and above sex and conscientiousness in a meaningful way.
+
+Full model: Negative Affect = b0 + b1\*Perfectionism + b2\*Conscientiousness + b3\*sex + e Reduced model: Negative Affect = b0 + b1\*sex + b2\*Conscientiousness + e
+
+```{r}
+##Hypothesis 2 GLM
+##Visualize model
+flexplot(negative.mean ~ sex +tipm.mean | mps.mean, data = excellentData)
+
+## Visualize connections between all variables
+added.plot(negative.mean ~ mps.mean, data = excellentData, method= "lm", lm_formula = negative.mean ~ sex + tipm.mean)
+```
+
+```{r}
+##Visualize relationships
+flexplot(negative.mean ~sex + tipm.mean, data = excellentData)
+
+##Create Model
+H2reducedModel = lm(negative.mean ~ sex + tipm.mean, data = excellentData)
+
+##Visualize and compare against full model
+visualize(H2reducedModel) + visualize(model1)
+##Compute estimates
+estimates(H2reducedModel)
+
+##compare models to assess variance
+model.comparison(model1, H2reducedModel)
+```
+
+Create Tables
+
+```{r}
+
+## Create tables for analysis + results
+excellentDataTable <- apa.cor.table(excellentData,
+                                    table.number = 1,
+                                    filename = "dataSetTable.doc")
+##Regression Table
+model1_table <- apa.reg.table(model1, 
+                              table.number = 2, 
+                              filename = "model1Table.doc")
+modelH2_table <- apa.reg.table(H2reducedModel,
+                               table.number = 3,
+                               filename = "H2reducedmodel.doc")
+model1_anovaTable <- apa.aov.table(model1,
+                                 table.number = 3,
+                                  filename = "model1_anovaTable.doc")
+```
