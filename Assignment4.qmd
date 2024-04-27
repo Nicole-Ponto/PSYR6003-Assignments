@@ -1,0 +1,139 @@
+---
+title: "Assignment 4"
+format: html
+editor: visual
+---
+
+## Install and Library packages
+
+```{r}
+install.packages("tidyverse")
+install.packages("haven")
+install.packages("flexplot")
+install.packages("dplyr")
+install.packages("apaTables")
+install.packages("MASS")
+install.packages("patchwork")
+install.packages("nlme")
+install.packages("lme4")
+install.packages("Matrix")
+
+library(tidyverse)
+library(haven)
+library(flexplot)
+library(dplyr)
+library(apaTables)
+library(MASS)
+library(patchwork)
+library(nlme)
+library(lme4)
+library(Matrix)
+
+```
+
+```{r}
+newData <- read_sav("~/STUPIDFOLDER/P6003.A4.sav")
+View(newData)
+```
+
+```{r}
+goodData <- newData %>% 
+  na.omit
+view(goodData)
+## data looks good! MOving onto to next steps
+```
+
+Test a model where extroversion and neuroticism are predictors and the dependent variable is life satisfaction.
+
+H1 - Extroversion will be positively associated with life satisfaction.
+
+H2 - Neuroticism will be negatively associated with life satisfaction.
+
+H3 - The effects will be similar for both levels 1 (within participants over time) and level 2 (between participants).
+
+```{r}
+##Visualize relationships
+a= flexplot(swl ~ 1, data = goodData)
+b=flexplot(tipm.E ~ 1, data = goodData)
+c= flexplot(tipm.N~ 1, data = goodData)
+plot1<-a+b+c
+##ggsave("univariate_relationships.jpeg", plot1)
+
+##Baseline model
+## Step 1: Fit Baseline Model
+##gives us total variability!
+reducedModel<- lmer(swl ~1+(1|id), data=goodData)
+summary(reducedModel)
+
+## Step 2: Calculate ICC
+##higher the value = less independant the data is
+icc(reducedModel)
+
+## Step 3: Create Fixed and Random models
+
+## Fixed effects Model
+fixedModel <- lmer(swl~tipm.N+tipm.E+(1|id), goodData)
+summary(fixedModel)
+
+model.comparison(reducedModel,fixedModel)
+
+##Random Mixed Effects Model
+randomModel<-lmer(swl~tipm.N+tipm.E+(tipm.N+tipm.E|id), goodData)
+summary(randomModel)
+
+##Step 4: Model Comparison
+
+## Fixed extroversion effect. 
+fixed_extraversion <- lmer(swl ~ tipm.E + (1|id), data = goodData)
+summary(fixed_extraversion)
+
+#Random + fixed extroversion effect. This model is saying there is an average effect of Extraversion on Life Satistafaction, but that changes across people
+random_Extraversion <- lmer (swl ~ tipm.E + (tipm.E|id), data = goodData)
+summary(random_Extraversion)
+
+#Do a model comparison
+model.comparison(fixed_extraversion, random_Extraversion)
+
+#Take the best fitting model and add the next variable you theoretically want to test, in this case it's our predictor neurotisicm added as a fixed effect only.
+fixed_neuroticsm <- lmer (swl ~ tipm.E + tipm.N + (tipm.E|id), data = goodData)
+summary(fixed_neuroticsm)
+model.comparison(random_Extraversion, fixed_neuroticsm)
+
+#Add the final random neurotisicm variable to test it
+random_Neurotiscm <- lmer (swl ~ tipm.E + tipm.N + (tipm.E + tipm.N|id), data = goodData)
+
+
+model.comparison(fixed_neuroticsm, random_Neurotiscm)
+model.comparison(fixedModel, random_Neurotiscm)
+summary(random_Neurotiscm)
+```
+
+```{r}
+
+#Visualize the model 
+visualize(random_Neurotiscm, plot = "model")
+#Get diagnostics
+visualize(random_Neurotiscm, plot = "residuals" )
+
+#Get summary
+summary(random_Neurotiscm)
+
+#Get key estimates.
+## This will NOT work sorry
+detach("package:lmerTest", unload = TRUE)
+estimates(random_Neurotiscm)
+
+#Get p-values
+library(lmerTest)
+
+#Get traditional R2 estimates
+#install.packages("performance")
+library(performance)
+
+r2(random_Neurotiscm)
+
+##Generating table with CI for Models
+install.packages("sjPlot")
+library(sjPlot)
+tab_model(random_Neurotiscm)
+```
